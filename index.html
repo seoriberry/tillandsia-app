@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: transparent;
+      overflow: hidden;
+      width: 220px;
+      height: 240px;
+    }
+    #app {
+      width: 220px;
+      height: 240px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      position: relative;
+      -webkit-app-region: drag;
+    }
+    #bubble {
+      background: #fffdf5;
+      border: 2px solid #3a3226;
+      border-radius: 14px;
+      padding: 6px 12px;
+      font-family: 'Apple SD Gothic Neo', sans-serif;
+      font-size: 12px;
+      color: #3a3226;
+      text-align: center;
+      line-height: 1.4;
+      white-space: nowrap;
+      position: absolute;
+      bottom: 185px;
+      top: auto;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      -webkit-app-region: no-drag;
+    }
+    #bubble.show { opacity: 1; }
+    #bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -10px; left: 50%;
+      transform: translateX(-50%);
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 10px solid #3a3226;
+    }
+    #bubble::before {
+      content: '';
+      position: absolute;
+      bottom: -7px; left: 50%;
+      transform: translateX(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 8px solid #fffdf5;
+      z-index: 1;
+    }
+    #plant-wrap {
+      width: 200px;
+      height: 200px;
+      position: relative;
+      cursor: grab;
+      -webkit-app-region: no-drag;
+    }
+    #plant-img {
+      width: 200px;
+      height: 200px;
+      object-fit: contain;
+      animation: float 3s ease-in-out infinite;
+      pointer-events: none;
+      user-select: none;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="bubble"></div>
+    <div id="plant-wrap">
+      <img id="plant-img" src="" alt="틸란드시아"/>
+    </div>
+  </div>
+
+  <script>
+    let currentState = 'clean';
+    let isDragging = false;
+    let mouseDownX = 0;
+    let mouseDownY = 0;
+    let winStartX = 0;
+    let winStartY = 0;
+    let bubbleLocked = false;
+    let happyTimer = null;
+
+    const clickMsgs = ['후우!', '안녕!', '오늘두 화이팅!'];
+    const bubbleMsgs = {
+      clean:       [],
+      dust1:       ['잎 사이가 간질간질해'],
+      dust2:       ['먼지가 소복히 쌓였어'],
+      dust3:       ['머리가 너무 무거워..'],
+      tired:       ['한숨 자고 싶어'],
+      tired_dusty: ['머리도 무겁고 졸려'],
+    };
+
+    const imgs = {
+      clean:       'plant_clean.png',
+      dust1:       'plant_dust1.png',
+      dust2:       'plant_dust2.png',
+      dust3:       'plant_dust3.png',
+      tired:       'plant_tired.png',
+      tired_dusty: 'plant_tired_dusty.png',
+      happy:       'plant_happy.png',
+    };
+
+    // 이미지 미리 로드
+    Object.values(imgs).forEach(src => {
+      const img = new Image();
+      img.src = src;
+    });
+
+    function showBubble(msg, duration = 3000, lock = false) {
+      if(bubbleLocked && !lock) return;
+      const b = document.getElementById('bubble');
+      b.textContent = msg;
+      b.classList.add('show');
+      if(lock) {
+        bubbleLocked = true;
+        setTimeout(() => {
+          b.classList.remove('show');
+          bubbleLocked = false;
+        }, duration);
+      } else {
+        setTimeout(() => b.classList.remove('show'), duration);
+      }
+    }
+
+    function setPlantState(state) {
+      currentState = state;
+      if(!bubbleLocked) {
+        document.getElementById('plant-img').src = imgs[state];
+      }
+      if(bubbleMsgs[state] && bubbleMsgs[state].length > 0 && !bubbleLocked) {
+        const msgs = bubbleMsgs[state];
+        showBubble(msgs[Math.floor(Math.random() * msgs.length)], 8000);
+      }
+    }
+
+    const plantEl = document.getElementById('plant-img');
+    const plantWrap = document.getElementById('plant-wrap');
+
+    plantWrap.addEventListener('mousedown', async (e) => {
+      isDragging = false;
+      mouseDownX = e.screenX;
+      mouseDownY = e.screenY;
+      const winPos = await window.electronAPI.getWindowPos();
+      winStartX = winPos.x;
+      winStartY = winPos.y;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if(e.buttons !== 1) return;
+      const dx = e.screenX - mouseDownX;
+      const dy = e.screenY - mouseDownY;
+      if(Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        isDragging = true;
+        window.electronAPI.moveWindow(winStartX + dx, winStartY + dy);
+      }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      const dist = Math.hypot(e.screenX - mouseDownX, e.screenY - mouseDownY);
+      if(!isDragging && dist < 5) {
+        // 말풍선
+        const msg = clickMsgs[Math.floor(Math.random() * clickMsgs.length)];
+        showBubble(msg, 2000, true);
+        // happy 이미지 즉시 교체
+        if(happyTimer) clearTimeout(happyTimer);
+        plantEl.src = imgs['happy'];
+        happyTimer = setTimeout(() => {
+          plantEl.src = imgs[currentState];
+        }, 2000);
+      }
+      isDragging = false;
+    });
+
+    if(window.electronAPI) {
+      window.electronAPI.onSystemData((data) => {
+        setPlantState(data.state);
+      });
+    }
+
+    setTimeout(() => setPlantState('clean'), 300);
+  </script>
+</body>
+</html>
