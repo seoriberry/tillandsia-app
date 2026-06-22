@@ -6,12 +6,18 @@
   "build": {
     "appId": "com.seoriberry.tillandsia",
     "productName": "Tillandsia",
+    "icon": "icon.png",
     "files": [
       "**/*",
       "!node_modules/electron"
     ],
     "mac": {
-      "target": "dmg"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ]
     },
     "win": {
       "target": "nsis"
@@ -27,5 +33,6 @@
   "type": "commonjs",
   "devDependencies": {
     "electron": "^42.3.0"
-  }
+  },
+  "dependencies": {}
 }
