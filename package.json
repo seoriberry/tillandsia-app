@@ -27,8 +27,5 @@
   "type": "commonjs",
   "devDependencies": {
     "electron": "^42.3.0"
-  },
-  "dependencies": {
-    "diskusage": "^1.2.0"
   }
 }

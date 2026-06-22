@@ -2,7 +2,6 @@ const { app, BrowserWindow, ipcMain, screen, Menu, MenuItem } = require('electro
 const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
-const diskusage = require('diskusage');
 
 let win;
 let lastData = null;
@@ -29,28 +28,13 @@ function createWindow() {
 
   win.webContents.on('context-menu', () => {
     const menu = new Menu();
-    menu.append(new MenuItem({
-      label: '상태',
-      enabled: false,
-    }));
+    menu.append(new MenuItem({ label: '틸란드시아 상태', enabled: false }));
     menu.append(new MenuItem({ type: 'separator' }));
-    menu.append(new MenuItem({
-      label: `열린 앱: ${lastData ? lastData.appCount + '개' : '..'}`,
-      enabled: false,
-    }));
-    menu.append(new MenuItem({
-      label: `재부팅: ${lastData ? lastData.uptime + '일 경과' : '..'}`,
-      enabled: false,
-    }));
-    menu.append(new MenuItem({
-      label: `저장공간: ${lastData ? lastData.diskFreePercent + '% 여유' : '..'}`,
-      enabled: false,
-    }));
+    menu.append(new MenuItem({ label: `열린 앱: ${lastData ? lastData.appCount + '개' : '..'}`, enabled: false }));
+    menu.append(new MenuItem({ label: `재부팅: ${lastData ? lastData.uptime + '일 경과' : '..'}`, enabled: false }));
+    menu.append(new MenuItem({ label: `저장공간: ${lastData ? lastData.diskFreePercent + '% 여유' : '..'}`, enabled: false }));
     menu.append(new MenuItem({ type: 'separator' }));
-    menu.append(new MenuItem({
-      label: '종료',
-      click: () => app.quit(),
-    }));
+    menu.append(new MenuItem({ label: '종료', click: () => app.quit() }));
     menu.popup();
   });
 }
@@ -59,9 +43,7 @@ ipcMain.on('move-window', (event, { x, y }) => {
   if(win) win.setPosition(Math.round(x), Math.round(y));
 });
 
-ipcMain.handle('get-cursor-pos', () => {
-  return screen.getCursorScreenPoint();
-});
+ipcMain.handle('get-cursor-pos', () => screen.getCursorScreenPoint());
 
 ipcMain.handle('get-window-pos', () => {
   const pos = win.getPosition();
@@ -79,17 +61,23 @@ function getAppCount() {
   }
 }
 
+function getDiskFreePercent() {
+  try {
+    const result = execSync(`df -k /`).toString();
+    const lines = result.trim().split('\n');
+    const parts = lines[1].split(/\s+/);
+    const total = parseInt(parts[1]);
+    const available = parseInt(parts[3]);
+    return Math.round((available / total) * 100);
+  } catch(e) {
+    return 100;
+  }
+}
+
 async function getSystemData() {
   const appCount = getAppCount();
   const uptime = Math.floor(os.uptime() / 86400);
-
-  let diskFreePercent = 100;
-  try {
-    const info = await diskusage.check('/');
-    diskFreePercent = Math.round((info.free / info.total) * 100);
-  } catch(e) {
-    diskFreePercent = 100;
-  }
+  const diskFreePercent = getDiskFreePercent();
 
   const isTired = uptime >= 5;
 
